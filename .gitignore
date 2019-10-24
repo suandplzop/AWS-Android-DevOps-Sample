@@ -1,0 +1,64 @@
+# User-specific configurations
+.idea/*
+.idea/caches/
+.idea/caches/build_file_checksums.ser
+/.idea/caches/build_file_checksums.ser
+.idea/libraries/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/.name
+.idea/compiler.xml
+.idea/copyright/profiles_settings.xml
+.idea/encodings.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/scopes/scope_settings.xml
+.idea/vcs.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+*.iml
+
+.gradle
+/local.properties
+keystore.properties
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+
+#generated files
+/build
+/*/build
+/app/build/
+/app/release/
+/*/*.properties
+/local.properties
+/captures
+/*.zip
+/*/*.apk
+.externalNativeBuild
+*bundle/
+/captures
+.externalNativeBuild
+
+# Crashlytics configuations
+com_crashlytics_export_strings.xml
+
+# Signing files
+.signing/
+/*.jks
+/app/*.jks
+*.pem
+.gradle
+/local.properties
+/keystore.properties
+
+
+lambda_build/
+

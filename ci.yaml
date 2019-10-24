@@ -1,0 +1,378 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Continuous Integration for Android mobile app
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: The name of the project being built.  This name will be used on a number of resources.
+    Default: AndroidDevOps
+  AndroidDevOpsGithubToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: 'Android-DevOps-Sample-Github-OAuthToken'
+  AndroidDevOpsSlackClientToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: 'Android-DevOps-Sample-Slack-Client-Token'
+  AndroidDevOpsSlackBotToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: 'Android-DevOps-Sample-Slack-Bot-Token'
+  NotifierBucketName:
+    Type: String
+    Description: The name where notifier lambdas store.
+    Default: android-codepipeline-slack-notifier-bucket
+  GitHubRepoOwner:
+    Type: String
+    Description: GitHub repo owner.
+    Default: scdplzop
+  GitHubRepo:
+    Type: String
+    Description: GitHub git repo.
+    Default: AWS-Android-DevOps-Sample
+  GitHubBranch:
+    Type: String
+    Description: Git branch to build off of.
+    Default: master
+
+Resources:
+  # S3 bucket where build artifacts go  
+  DeploymentArtifactBucket:
+    Type: AWS::S3::Bucket
+  AndroidDevOpsPipelineNotifierBucket:
+    Type: AWS::S3::Bucket
+
+  AndroidDevOpsCodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+      Policies:
+      - PolicyName: SSM-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+            Effect: Allow
+            Resource: '*'
+            # Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*'
+      - PolicyName: Cloudformation-Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Action:
+            - cloudformation:CreateStack
+            - cloudformation:DeleteStack
+            - cloudformation:DescribeStacks
+            - cloudformation:UpdateStack
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:ExecuteChangeSet
+            - cloudformation:SetStackPolicy
+            - cloudformation:GetTemplateSummary
+            - cloudformation:ValidateTemplate
+            Effect: Allow
+            Resource: '*'
+      
+  AndroidDevOpsCodeBuildServicePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AndroidDevOpsCodeBuildServicePolicy
+      Roles:
+        - !Ref AndroidDevOpsCodeBuildServiceRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "arn:aws:logs:*:*:*"
+          - Effect: Allow
+            Action:
+              - s3:List*
+              - s3:Get*
+              - s3:CopyObject
+            Resource:
+              - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*/*"
+              - !Sub "arn:aws:s3:::${DeploymentArtifactBucket}/*"
+
+  AndroidDevOpsUnitTestAndAssemble:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: AndroidDevOpsUnitTestAndAssemble
+      ServiceRole: !GetAtt AndroidDevOpsCodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          env:
+            variables:
+
+          phases:
+            install:
+              runtime-versions:
+                android: 29
+                java: openjdk8
+
+            pre_build:
+              commands:
+              - echo Build completed on `date`
+              - echo `pwd`
+              - echo $PATH
+              - echo $ANDROID_HOME
+              - ls
+              - cd $ANDROID_HOME/
+              - ls -d */
+              - cd tools/bin
+              - ls
+              - sdkmanager --licenses
+              - sdkmanager --update
+              - cd $CODEBUILD_SRC_DIR
+            build:
+              commands:
+              - ./gradlew testDebugUnitTest --info
+              - ./gradlew assembleDebug --info
+              - ./gradlew assembleAndroidTest --info
+            post_build:
+              commands:
+              - echo Build completed on `date`
+
+          artifacts:
+            files:
+            - app/build/outputs/apk/androidTest/debug/*.apk
+            discard-paths: yes
+      Environment:
+        Type: linuxContainer
+        # ComputeType options: BUILD_GENERAL1_SMALL, BUILD_GENERAL1_MEDIUM, BUILD_GENERAL1_LARGE
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        # Run `aws codebuild list-curated-environment-images` for a complete list of images provided.
+        Image: aws/codebuild/standard:2.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: BUILD_ARTIFACT_BUCKET
+            Value: !Ref DeploymentArtifactBucket
+      TimeoutInMinutes: 15
+
+  # CodePipelineRole
+  AndroidDevOpsCodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            
+  AndroidDevOpsCodePipelineServicePolicy:
+    # This policy orchestrates CloudFormation and CodeBuild.
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AndroidDevOpsCodePipelineServicePolicy
+      Roles:
+        - !Ref AndroidDevOpsCodePipelineServiceRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource: '*'
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                - cloudformation.amazonaws.com
+
+          - Effect: Allow
+            Action:
+              - cloudwatch:*
+            Resource: '*'
+
+          - Effect: Allow
+            Action:
+              - devicefarm:*
+            Resource: '*'
+
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: "arn:aws:logs:*:*:*"
+
+          - Effect: Allow
+            Action:
+              - s3:*
+              - s3:ListBucket
+              - s3:GetBucketAcl
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:PutObject
+            Resource: !Sub "arn:aws:s3:::${DeploymentArtifactBucket}/*"
+
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeStacks
+              - cloudformation:UpdateStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:SetStackPolicy
+              - cloudformation:GetTemplateSummary
+              - cloudformation:ValidateTemplate
+            Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${ProjectName}/*"
+            
+          - Effect: Allow
+            Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codebuild:StopBuild
+            Resource: 
+            - !GetAtt AndroidDevOpsUnitTestAndAssemble.Arn
+
+  AndroidDevOpsCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: AndroidDevOpsInstrumentation
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location: !Ref DeploymentArtifactBucket
+      RestartExecutionOnUpdate: true
+      Name: Android-CodePipeline
+      RoleArn: !GetAtt AndroidDevOpsCodePipelineServiceRole.Arn
+      Stages:
+      - Name: Source
+        Actions:
+        - Name: GithubBuildSource
+          ActionTypeId:
+            Category: Source
+            Owner: ThirdParty
+            Provider: GitHub
+            Version: '1'
+          OutputArtifacts:
+            - Name: SourceCodeOutputArtifact
+          Configuration:
+            Owner: !Ref GitHubRepoOwner
+            Repo: !Ref GitHubRepo
+            PollForSourceChanges: true
+            Branch: !Ref GitHubBranch
+            OAuthToken: !Ref AndroidDevOpsGithubToken
+          RunOrder: 1
+      - Name: Build
+        Actions:
+        - Name: AndroidDevOpsUnitTestAndAssemble
+          ActionTypeId:
+            Category: Build
+            Owner: AWS
+            Provider: CodeBuild
+            Version: '1'
+          InputArtifacts:
+            - Name: SourceCodeOutputArtifact
+          OutputArtifacts:
+            - Name: BuildOutputArtifact
+          Configuration:
+            PrimarySource: SourceCodeOutputArtifact
+            ProjectName: !Ref AndroidDevOpsUnitTestAndAssemble
+      - Name: Test
+        Actions:
+        - Name: DeviceFarmTest
+          ActionTypeId:
+            Category: Test
+            Owner: AWS
+            Version: 1
+            Provider: DeviceFarm
+          Configuration:
+            RecordAppPerformanceData: true
+            AppType: Android
+            ProjectId: !GetAtt AndroidDevOpsInstrumentation.ProjectId
+            App: app-debug.apk
+            RadioBluetoothEnabled: true
+            RecordVideo: true
+            RadioWifiEnabled: true
+            RadioNfcEnabled: true
+            RadioGpsEnabled: true
+            Test: app-debug-androidTest.apk
+            DevicePoolArn: !GetAtt DeviceFarmDevicePool.Arn
+            #DevicePoolArn: !GetAtt DeviceFarmProject.TopDevicesDevicePoolArn
+            TestType: Instrumentation
+          InputArtifacts:
+            - Name: BuildOutputArtifact
+          
+  AndroidDevOpsNotifier:
+    Type: AWS::Serverless::Function
+    DependsOn: AndroidDevOpsPipelineNotifierBucket
+    Properties:
+      Handler: notifier.lambda_handler
+      Runtime: python3.6
+      MemorySize: 128
+      Timeout: 5
+      CodeUri: lambda_build/build/device-farm-resources
+      Environment:
+        Variables:
+          SLACK_CLIENT_TOKEN:
+            Ref: AndroidDevOpsSlackClientToken
+          SLACK_BOT_TOKEN:
+            Ref: AndroidDevOpsSlackBotToken
+      Policies:
+          Statement:
+          - Action:
+            - codepipeline:*
+            - codebuild:*
+            Effect: Allow
+            Resource: '*'
+      Events:
+        CodeBuildEvent:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+              - aws.codebuild
+              detail-type:
+              - CodeBuild Build State Change
+        CodePipelineEvent:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source:
+              - aws.codepipeline
+              detail-type:
+              - CodePipeline Action Execution State Change
+
+  AndroidDevOpsInstrumentation:
+    Type: Custom::DeviceFarm
+    Properties:
+      ServiceToken:
+        Fn::ImportValue: 'android-instrumentation-function-arn'
+      ProjectName: !Sub '${ProjectName}-device-farm'
+
+  DeviceFarmDevicePool:
+    Type: Custom::DeviceFarmDevicePool
+    Properties:
+      ServiceToken:
+        Fn::ImportValue: 'android-device-pool-function-arn'
+      ProjectArn: !GetAtt AndroidDevOpsInstrumentation.Arn
+      Name: android-device-pool-pixels
+      Description: All Pixel 2 Devices
+      Rules:
+        - attribute: MODEL
+          operator: EQUALS
+          value: '"Google Pixel 2"'

@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Description: AWS Device Farm custom resources, most of these are service token function
+
+Resources:
+  AndroidDevOpsDeployBucket:
+    Type: AWS::S3::Bucket
+  AndroidDevOpsResourceLambdaArtifactsBucket:
+    Type: AWS::S3::Bucket
+
+  AndroidDevOpsInstrumentationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Custom resource lambda to manage device-farm projects
+      Handler: device_farm.project_resource.lambda_handler
+      Role: !GetAtt AndroidDevOpsInstrumentationResourceRole.Arn
+      Code: lambda_build/build/device-farm-resources
+      Runtime: python3.6
+      Timeout: 60
+      
+  AndroidDevOpsDevicePoolFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Custom resource lambda to manage device-farm device pools
+      Handler: device_farm.device_pool_resource.lambda_handler
+      Role: !GetAtt AndroidDevOpsInstrumentationResourceRole.Arn
+      Code: lambda_build/build/device-farm-resources
+      Runtime: python3.6
+      Timeout: 60
+
+  AndroidDevOpsInstrumentationResourceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - devicefarm:CreateProject
+                  - devicefarm:UpdateProject
+                  - devicefarm:DeleteProject
+                  - devicefarm:ListDevicePools
+                  - devicefarm:CreateDevicePool
+                  - devicefarm:UpdateDevicePool
+                  - devicefarm:DeleteDevicePool
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - s3:ListBucket
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${AndroidDevOpsResourceLambdaArtifactsBucket}/*"
+
+  ProjectLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AndroidDevOpsInstrumentationFunction}
+      RetentionInDays: 7
+  DevicePoolLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AndroidDevOpsDevicePoolFunction}
+      RetentionInDays: 7
+  UseCustomResourcesPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              - !GetAtt AndroidDevOpsInstrumentationFunction.Arn
+              - !GetAtt AndroidDevOpsDevicePoolFunction.Arn
+Outputs:
+  AndroidDevOpsInstrumentationLambdaArn:
+    Value: !GetAtt AndroidDevOpsInstrumentationFunction.Arn
+    Export:
+      Name: 'android-instrumentation-function-arn'
+  AndroidDevOpsDevicePoolFunctionArn:
+    Value: !GetAtt AndroidDevOpsDevicePoolFunction.Arn
+    Export:
+      Name: 'android-device-pool-function-arn'
+  UseFunctionPolicyArn:
+    Value: !Ref UseCustomResourcesPolicy
+    Export:
+      Name: 'android-device-farm-custom-resource-policy-arn'
+  DeployBucketArn:
+    Value: !Ref AndroidDevOpsDeployBucket
+    Export:
+      Name: 'android-deploy-bucket-arn'
