@@ -2,6 +2,7 @@ import slack
 import os
 import json
 import logging
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -34,7 +35,6 @@ def find_msg(ch):
 def find_my_messages(ch_name, user_name=SLACK_BOT_NAME):
   ch_id = find_channel(ch_name)
   msg = find_msg(ch_id)
-  logger.info("Channel Id:" + ch_id, "Message" + msg)
   if 'error' in msg:
     logger.error("error: {}".format(msg['error']))
   else:

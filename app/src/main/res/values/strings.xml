@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">DevOpsActivity</string>
+    <string name="app_name">AWSAndroidDevOpsSample</string>
     <string name="action_settings">Settings</string>
 </resources>

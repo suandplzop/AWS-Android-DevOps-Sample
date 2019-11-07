@@ -45,19 +45,19 @@ then
     exit
 fi
 
-# echo "Packaging device-farm custom resource lambdas"
-# aws cloudformation package \
-#     --template-file coustom_resources.ymal \
-#     --output-template-file lambda_build/template-resources.yaml \
-#     --s3-bucket $RESOURCE_BUCKET
+echo "Packaging device-farm custom resource lambdas"
+aws cloudformation package \
+    --template-file coustom_resources.ymal \
+    --output-template-file lambda_build/template-resources.yaml \
+    --s3-bucket $RESOURCE_BUCKET
 
-# resources_stack_name="${ProjectName}-Device-Farm-Resources"
-# echo "Deploying resources to ${resources_stack_name}"
-# aws cloudformation deploy \
-#     --template-file lambda_build/template-resources.yaml \
-#     --stack-name ${resources_stack_name} \
-#     --capabilities CAPABILITY_IAM \
-#     --parameter-overrides "Prefix=${ProjectName}"
+resources_stack_name="${ProjectName}-Device-Farm-Resources"
+echo "Deploying resources to ${resources_stack_name}"
+aws cloudformation deploy \
+    --template-file lambda_build/template-resources.yaml \
+    --stack-name ${resources_stack_name} \
+    --capabilities CAPABILITY_IAM \
+    --parameter-overrides "Prefix=${ProjectName}"
 
 echo "Packaging pipeline"
 aws cloudformation package \

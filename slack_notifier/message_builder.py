@@ -91,7 +91,10 @@ class MessageBuilder(object):
 
     def show_p(p):
       d = p.get('duration-in-seconds')
-      return (p['phase-type'] != 'COMPLETED' and d is None) or d > 0
+      if d is None:
+        return p['phase-type'] != 'COMPLETED'
+      else:
+        return d > 0
 
     def pc(p):
       ctx = p.get('phase-context', [])
