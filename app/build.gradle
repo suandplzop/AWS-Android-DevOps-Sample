@@ -1,7 +1,5 @@
 apply plugin: 'com.android.application'
-
 apply plugin: 'kotlin-android'
-
 apply plugin: 'kotlin-android-extensions'
 
 android {
@@ -21,6 +19,30 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    ktlint {
+        version = "0.34.0"
+        verbose = true
+        android = true
+        ignoreFailures = true
+        outputToConsole = true
+        outputColorName = "RED"
+        ignoreFailures = true
+        enableExperimentalRules = true
+        additionalEditorconfigFile = file("/some/additional/.editorconfig")
+        disabledRules = ["final-newline"]
+        reporters {
+            reporter "plain"
+            reporter "checkstyle"
+        }
+        kotlinScriptAdditionalPaths {
+            include fileTree("scripts/")
+        }
+        filter {
+            exclude("**/generated/**")
+            include("**/kotlin/**")
+        }
+    }
 }
 
 dependencies {
@@ -33,4 +55,5 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+
 }
