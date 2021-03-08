@@ -14,8 +14,7 @@ fail("fit left in tests") if `grep -r fit specs/ `.length > 1
 
 # ktlint
 checkstyle_format.base_path = Dir.pwd
-checkstyle_format.report "/bitrise/src/ktlint-report-in-checkstyle-format.xml"
-
+checkstyle_format.report "/bitrise/src/build/reports/ktlint/ktlintMainSourceSetCheck/ktlintMainSourceSetCheck.html"
 # AndroidLint
 android_lint.report_file = "/bitrise/src/build/reports/lint/lint-report.xml"
 android_lint.skip_gradle_task = true

@@ -19,30 +19,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
-    ktlint {
-        version = "0.34.0"
-        verbose = true
-        android = true
-        ignoreFailures = true
-        outputToConsole = true
-        outputColorName = "RED"
-        ignoreFailures = true
-        enableExperimentalRules = true
-        additionalEditorconfigFile = file("/some/additional/.editorconfig")
-        disabledRules = ["final-newline"]
-        reporters {
-            reporter "plain"
-            reporter "checkstyle"
-        }
-        kotlinScriptAdditionalPaths {
-            include fileTree("scripts/")
-        }
-        filter {
-            exclude("**/generated/**")
-            include("**/kotlin/**")
-        }
-    }
 }
 
 dependencies {
