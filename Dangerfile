@@ -14,7 +14,7 @@ fail("fit left in tests") if `grep -r fit specs/ `.length > 1
 
 # ktlint
 checkstyle_format.base_path = Dir.pwd
-checkstyle_format.report "/bitrise/src/build/reports/ktlint/ktlint-report.xml"
+checkstyle_format.report "/bitrise/src/ktlint-report-in-checkstyle-format.xml"
 
 # AndroidLint
 android_lint.report_file = "/bitrise/src/build/reports/lint/lint-report.xml"

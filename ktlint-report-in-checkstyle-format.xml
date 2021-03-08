@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<checkstyle version="8.0">
+	<file name="/Users/dplzop/softchef/AWS-Android-DevOps-Sample/app/src/androidTest/java/com/softchef/jared/devops/ExampleInstrumentedTest.kt">
+		<error line="3" column="1" severity="error" message="Imports must be ordered in lexicographic order without any empty lines in-between" source="import-ordering" />
+		<error line="9" column="1" severity="error" message="Wildcard import (cannot be auto-corrected)" source="no-wildcard-imports" />
+	</file>
+	<file name="/Users/dplzop/softchef/AWS-Android-DevOps-Sample/app/src/main/java/com/softchef/jared/devops/MainActivity.kt">
+		<error line="3" column="1" severity="error" message="Imports must be ordered in lexicographic order without any empty lines in-between" source="import-ordering" />
+		<error line="12" column="19" severity="error" message="Missing spacing before &quot;:&quot;" source="colon-spacing" />
+		<error line="12" column="40" severity="error" message="Missing spacing before &quot;{&quot;" source="curly-spacing" />
+		<error line="13" column="55" severity="error" message="Missing spacing before &quot;{&quot;" source="curly-spacing" />
+		<error line="18" column="39" severity="error" message="Unnecessary space(s)" source="no-multi-spaces" />
+	</file>
+	<file name="/Users/dplzop/softchef/AWS-Android-DevOps-Sample/app/src/test/java/com/softchef/jared/devops/ExampleUnitTest.kt">
+		<error line="3" column="1" severity="error" message="Imports must be ordered in lexicographic order without any empty lines in-between" source="import-ordering" />
+		<error line="5" column="1" severity="error" message="Wildcard import (cannot be auto-corrected)" source="no-wildcard-imports" />
+	</file>
+</checkstyle>
