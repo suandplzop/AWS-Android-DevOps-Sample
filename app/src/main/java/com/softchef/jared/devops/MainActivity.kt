@@ -20,8 +20,6 @@ class MainActivity: AppCompatActivity(){
         }
         actionA_B("YO")
 
-
-        
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
