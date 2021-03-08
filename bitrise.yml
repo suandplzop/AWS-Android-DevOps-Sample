@@ -3,10 +3,10 @@ format_version: '8'
 default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
 project_type: android
 trigger_map:
-- push_branch: "*"
-  workflow: primary
-- pull_request_source_branch: "*"
-  workflow: primary
+  - push_branch: "*"
+    workflow: primary
+  - pull_request_source_branch: "*"
+    workflow: primary
 workflows:
   deploy:
     description: |
@@ -42,185 +42,81 @@ workflows:
 
       The next change in your repository that matches any of your trigger map event will start **deploy** workflow.
     steps:
-    - activate-ssh-key@4:
-        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
-    - git-clone@4: {}
-    - cache-pull@2: {}
-    - script@1:
-        title: Do anything with Script step
-    - install-missing-android-tools@2:
-        inputs:
-        - gradlew_path: "$PROJECT_LOCATION/gradlew"
-    - change-android-versioncode-and-versionname@1:
-        inputs:
-        - build_gradle_path: "$PROJECT_LOCATION/$MODULE/build.gradle"
-    - android-lint@0:
-        inputs:
-        - project_location: "$PROJECT_LOCATION"
-        - module: "$MODULE"
-        - variant: "$VARIANT"
-    - android-unit-test@1:
-        inputs:
-        - project_location: "$PROJECT_LOCATION"
-        - module: "$MODULE"
-        - variant: "$VARIANT"
-    - android-build@0:
-        inputs:
-        - project_location: "$PROJECT_LOCATION"
-        - module: "$MODULE"
-        - variant: "$VARIANT"
-    - sign-apk@1:
-        run_if: '{{getenv "BITRISEIO_ANDROID_KEYSTORE_URL" | ne ""}}'
-    - deploy-to-bitrise-io@1: {}
-    - cache-push@2: {}
+      - activate-ssh-key@4:
+          run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+      - git-clone@4: {}
+      - cache-pull@2: {}
+      - script@1:
+          title: Do anything with Script step
+      - install-missing-android-tools@2:
+          inputs:
+            - gradlew_path: "$PROJECT_LOCATION/gradlew"
+      - change-android-versioncode-and-versionname@1:
+          inputs:
+            - build_gradle_path: "$PROJECT_LOCATION/$MODULE/build.gradle"
+      - android-lint@0:
+          inputs:
+            - project_location: "$PROJECT_LOCATION"
+            - module: "$MODULE"
+            - variant: "$VARIANT"
+      - android-unit-test@1:
+          inputs:
+            - project_location: "$PROJECT_LOCATION"
+            - module: "$MODULE"
+            - variant: "$VARIANT"
+      - android-build@0:
+          inputs:
+            - project_location: "$PROJECT_LOCATION"
+            - module: "$MODULE"
+            - variant: "$VARIANT"
+      - sign-apk@1:
+          run_if: '{{getenv "BITRISEIO_ANDROID_KEYSTORE_URL" | ne ""}}'
+      - deploy-to-bitrise-io@1: {}
+      - cache-push@2: {}
   primary:
     steps:
-    - activate-ssh-key@4:
-        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
-    - git-clone@4: {}
-    - cache-pull@2: {}
-    - install-missing-android-tools@2:
-        inputs:
-        - gradlew_path: "$PROJECT_LOCATION/gradlew"
-    - script@1:
-        inputs:
-        - content: "#!/bin/bash\nset -ex\n\ngem install bundler:1.17.2\n\nbundle update
-            --bundler\n\nbundle install \n\n./gradlew ktlintCheck"
-        title: Run ktlint
-    - script@1:
-        inputs:
-        - content: |-
-            import sys
-            import os.path
-            from xml.etree import ElementTree
+      - activate-ssh-key@4:
+          run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+      - git-clone@4: {}
+      - cache-pull@2: {}
+      - install-missing-android-tools@2:
+          inputs:
+            - gradlew_path: "$PROJECT_LOCATION/gradlew"
+      - android-lint@0:
+          inputs:
+            - project_location: "$PROJECT_LOCATION"
+            - module: "$MODULE"
+            - variant: "$VARIANT"
+      - android-unit-test@1:
+          inputs:
+            - project_location: "$PROJECT_LOCATION"
+            - module: "$MODULE"
+            - variant: "$VARIANT"
+      - script@1.1.2:
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                # fail if any commands fails
+                set -e
+                # debug log
+                set -x
 
-            first = None
-            file_list = [
-            "/bitrise/src/cache/build/reports/ktlint/ktlint-debug.xml",
-            "/bitrise/src/cache/build/reports/ktlint/ktlint-debugUnitTest.xml",
-            "/bitrise/src/remote/build/reports/ktlint/ktlint-main.xml",
-            "/bitrise/src/remote/build/reports/ktlint/ktlint-test.xml",
-            "/bitrise/src/base/build/reports/ktlint/ktlint-debug.xml",
-            "/bitrise/src/base/build/reports/ktlint/ktlint-debugUnitTest.xml",
-            "/bitrise/src/base/build/reports/ktlint/ktlint-debugAndroidTest.xml"]
-
-            ktlintFile = 'ktlint-report-orig.xml'
-            editedKtlintFile = 'ktlint-report.xml'
-
-            for filename in file_list:
-                if os.path.isfile(filename):
-                    data = ElementTree.parse(filename).getroot()
-                    if first is None:
-                        first = data
-                    else:
-                        first.extend(data)
-            if first is not None:
-                f = open( ktlintFile, 'w' )
-                f.write( "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" )
-                f.write( ElementTree.tostring(first) )
-                f.close()
-
-            delete_list = ["/bitrise/src/"]
-            fin = open(ktlintFile)
-            fout = open(editedKtlintFile, "w+")
-            for line in fin:
-                for word in delete_list:
-                    line = line.replace(word, "")
-                fout.write(line)
-            fin.close()
-            fout.close()
-        title: Create Ktlint reports
-    - script@1:
-        inputs:
-        - content: |-
-            import sys
-            import os.path
-            from xml.etree import ElementTree
-
-            first = None
-            file_list = ["/bitrise/src/cache/build/reports/lintresults.xml",
-            "/bitrise/src/presentation/build/reports/lint-results.xml",
-            "/bitrise/src/mobile-ui/build/reports/lint-results.xml"]
-
-            lintFile = 'lint-report-orig.xml'
-            editedlintFile = 'lint-report.xml'
-
-            for filename in file_list:
-                if os.path.isfile(filename):
-                    data = ElementTree.parse(filename).getroot()
-                    if first is None:
-                        first = data
-                    else:
-                        first.extend(data)
-            if first is not None:
-                f = open( lintFile, 'w' )
-                f.write( "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" )
-                f.write( ElementTree.tostring(first) )
-                f.close()
-
-            delete_list = ["/bitrise/src/"]
-            fin = open(lintFile)
-            fout = open(editedlintFile, "w+")
-            for line in fin:
-                for word in delete_list:
-                    line = line.replace(word, "")
-                fout.write(line)
-            fin.close()
-            fout.close()
-        title: Create Android Lint
-    - script@1:
-        inputs:
-        - content: |-
-            #!/usr/bin/env bash
-            # fail if any commands fails
-            set -e
-            # debug log
-            set -x
-
-            # write your script here
-            cp ktlint-report.xml $BITRISE_DEPLOY_DIR/ktlint-report.xml
-            cp ktlint-report.xml $BITRISE_SOURCE_DIR/build/reports/ktlint/ktlint-report.xml
-
-            cp lint-report.xml $BITRISE_DEPLOY_DIR/lint-report.xml
-            cp lint-report.xml $BITRISE_SOURCE_DIR/build/reports/lint/lint-report.xml
-
-            less /bitrise/src/build/reports/ktlint/ktlint-report.xml
-            less /bitrise/src/build/reports/lint/lint-report.xml
-        title: Copy report to deploy path
-    - script@1:
-        inputs:
-        - content: |-
-            #!/usr/bin/env bash
-            # fail if any commands fails
-            set -e
-            # debug log
-            set -x
-
-            bundle exec danger
-        title: Run danger
-    - android-lint@0:
-        inputs:
-        - project_location: "$PROJECT_LOCATION"
-        - module: "$MODULE"
-        - variant: "$VARIANT"
-    - android-unit-test@1:
-        inputs:
-        - project_location: "$PROJECT_LOCATION"
-        - module: "$MODULE"
-        - variant: "$VARIANT"
-    - deploy-to-bitrise-io@1: {}
-    - cache-push@2: {}
+                gem install bundler:1.17.2
+                bundle install
+                bundle exec danger
+      - deploy-to-bitrise-io@1: {}
+      - cache-push@2: {}
 app:
   envs:
-  - opts:
-      is_expand: false
-    PROJECT_LOCATION: "."
-  - opts:
-      is_expand: false
-    MODULE: app
-  - opts:
-      is_expand: false
-    VARIANT: ''
-  - opts:
-      is_expand: false
-    DANGER_GITHUB_API_TOKEN: a6e94dcb2a7d6056ad9117eea682a314e753e51a
+    - opts:
+        is_expand: false
+      PROJECT_LOCATION: "."
+    - opts:
+        is_expand: false
+      MODULE: app
+    - opts:
+        is_expand: false
+      VARIANT: ''
+    - opts:
+        is_expand: false
+      DANGER_GITHUB_API_TOKEN: a6e94dcb2a7d6056ad9117eea682a314e753e51a
